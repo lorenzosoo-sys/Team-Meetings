@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Meeting Logger</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Team Meeting Logger</h1>
+            <p class="subtitle">Log meetings, action items, capacity, and blockers</p>
+        </header>
+
+        <section class="form-section">
+            <h2>New Meeting Entry</h2>
+            <form action="/submit" method="POST" id="meetingForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="submitter_name">Your Name</label>
+                        <input type="text" id="submitter_name" name="submitter_name" placeholder="e.g. Jane Smith" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="meeting_name">Meeting Name</label>
+                        <input type="text" id="meeting_name" name="meeting_name" placeholder="e.g. Sprint Planning" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="meeting_date">Date</label>
+                        <input type="date" id="meeting_date" name="meeting_date" required>
+                    </div>
+                </div>
+
+                <h3>Team Members</h3>
+                <div id="members-container">
+                    <div class="member-card">
+                        <div class="member-header">
+                            <span class="member-number">1</span>
+                            <button type="button" class="btn-remove" onclick="removeMember(this)" title="Remove member">&times;</button>
+                        </div>
+                        <div class="member-grid">
+                            <div class="form-group">
+                                <label>Name</label>
+                                <input type="text" name="individual_name[]" placeholder="Team member name" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Capacity</label>
+                                <input type="text" name="capacity[]" placeholder="e.g. 80%, Full, 3 days">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Action Items</label>
+                            <textarea name="action_items[]" rows="2" placeholder="List action items for this person..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Blockers</label>
+                            <textarea name="blockers[]" rows="2" placeholder="Any blockers or impediments..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn-add" onclick="addMember()">+ Add Team Member</button>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-submit">Submit Meeting Log</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="table-section">
+            <h2>Meeting History</h2>
+            {% if meetings %}
+                {% for meeting in meetings %}
+                <div class="meeting-card">
+                    <div class="meeting-card-header">
+                        <div class="meeting-info">
+                            <h3>{{ meeting.meeting_name }}</h3>
+                            <div class="meeting-meta">
+                                <span class="tag">Submitted by: <strong>{{ meeting.submitter_name }}</strong></span>
+                                <span class="tag">Date: <strong>{{ meeting.meeting_date }}</strong></span>
+                            </div>
+                        </div>
+                        <form action="/delete/{{ meeting.id }}" method="POST" class="delete-form" onsubmit="return confirm('Delete this meeting log?');">
+                            <button type="submit" class="btn-delete" title="Delete">Delete</button>
+                        </form>
+                    </div>
+                    {% set entries = entries_by_meeting.get(meeting.id, []) %}
+                    {% if entries %}
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Capacity</th>
+                                    <th>Action Items</th>
+                                    <th>Blockers</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in entries %}
+                                <tr>
+                                    <td class="name-cell">{{ entry.individual_name }}</td>
+                                    <td class="capacity-cell">{{ entry.capacity or '—' }}</td>
+                                    <td class="action-cell">{{ entry.action_items or '—' }}</td>
+                                    <td class="blocker-cell">{{ entry.blockers if entry.blockers else '—' }}{% if entry.blockers %}<span class="blocker-flag">!</span>{% endif %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="empty-note">No team member entries for this meeting.</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <p>No meetings logged yet. Submit one above to get started.</p>
+                </div>
+            {% endif %}
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('meeting_date').value = today;
+        });
+
+        function addMember() {
+            const container = document.getElementById('members-container');
+            const count = container.querySelectorAll('.member-card').length + 1;
+            const card = document.createElement('div');
+            card.className = 'member-card';
+            card.innerHTML = `
+                <div class="member-header">
+                    <span class="member-number">${count}</span>
+                    <button type="button" class="btn-remove" onclick="removeMember(this)" title="Remove member">&times;</button>
+                </div>
+                <div class="member-grid">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" name="individual_name[]" placeholder="Team member name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Capacity</label>
+                        <input type="text" name="capacity[]" placeholder="e.g. 80%, Full, 3 days">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Action Items</label>
+                    <textarea name="action_items[]" rows="2" placeholder="List action items for this person..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Blockers</label>
+                    <textarea name="blockers[]" rows="2" placeholder="Any blockers or impediments..."></textarea>
+                </div>
+            `;
+            container.appendChild(card);
+            card.querySelector('input').focus();
+            renumberMembers();
+        }
+
+        function removeMember(btn) {
+            const container = document.getElementById('members-container');
+            if (container.querySelectorAll('.member-card').length <= 1) return;
+            btn.closest('.member-card').remove();
+            renumberMembers();
+        }
+
+        function renumberMembers() {
+            const cards = document.querySelectorAll('.member-card');
+            cards.forEach((card, i) => {
+                card.querySelector('.member-number').textContent = i + 1;
+            });
+        }
+    </script>
+</body>
+</html>
