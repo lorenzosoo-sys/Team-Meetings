@@ -1,1 +1,5 @@
-*
+.git
+.gitignore
+.sonarcloud.properties
+meetings.db
+*.md
